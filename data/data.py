@@ -13,7 +13,7 @@ from os.path import exists
 # dataset - an array of dict that's the dataset we get
 # max_num_genres - the maximum number of genres for each data points
 def get_data(num_per_request, min_num_data):
-    headers = {"X-MAL-CLIENT-ID": "***REMOVED***"}
+    headers = {"X-MAL-CLIENT-ID": ""}
     main_url = "https://api.myanimelist.net/v2/anime/season/"
     season = ["winter", "spring", "summer", "fall"]
 
