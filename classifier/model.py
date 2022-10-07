@@ -8,25 +8,24 @@ import torch
 import numpy as np
 from torch.autograd import Variable
 
-class Model():
-    def __init__(self):
-        self.genre_list = pd.read_csv('data/genre_list.csv')['genres'].values.tolist()
 
+class Model():
+    def __init__(self, data_path):
+        self.genre_list = pd.read_csv(data_path + 'helper_data/genre_list.csv')['genres'].values.tolist()
         pass
     def predict(self,text):
         pass
-# save vocab, genre_list, count, total_number
 
 class naive_bayes_model(Model):
-    def __init__(self):
-        super().__init__()
-        weight = pd.read_csv('data/nb_weight.csv')
+    def __init__(self, data_path):
+        super().__init__(data_path)
+        weight = pd.read_csv(data_path + 'model/nb_weight')
         self.weights = nb.read_weights(weight)
         self.thres = 0.5
         self.smoothing = 0.001
         self.func_list = [preproc.clean_para, preproc.bag_of_words, preproc.remove_stop_words]
         
-        bag_of_word = pd.read_csv('data/count.csv')
+        bag_of_word = pd.read_csv(data_path + 'helper_data/count.csv')
         words = bag_of_word['words'].values
         count_num = bag_of_word['counts'].values
         self.count = {}
@@ -43,34 +42,39 @@ class naive_bayes_model(Model):
         return y_pred
 
 class lg_model(Model):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, data_path):
+        super().__init__(data_path)
         self.func_list = [preproc.clean_para, preproc.bag_of_words, preproc.remove_stop_words]
         self.threshold = np.log(0.2)
 
-        self.vocab = set(pd.read_csv('data/vocab_no_stop_word.csv')['word'].values.tolist())
-        self.model = model = torch.nn.Sequential(
+        self.vocab = set(pd.read_csv(data_path + 'helper_data/vocab_no_stop_word.csv')['word'].values.tolist())
+        self.model = torch.nn.Sequential(
             torch.nn.Linear(len(self.vocab), len(self.genre_list), bias=True),
         )
         self.model.add_module('softmax',torch.nn.LogSoftmax(dim=1))
-        self.model = torch.load("../lg_best_params.params")
+        checkpoint = torch.load(data_path + "model/lg.params")
+        self.model.load_state_dict(checkpoint['state_dict'])
 
     def predict(self, text):
         x = text
         for func in self.func_list:
             x = func(x)
+        x = preproc.make_numpy_bag_of_word([x], [1], self.vocab)
+        x = Variable(torch.from_numpy(x.astype(np.float32)))
+
         result = []
         Y_hat = self.model.forward(x).data
+        Y_hat = Y_hat[0]
         for row in range(Y_hat.size(dim=0)):
             if Y_hat[row] >= self.threshold:
-                    result.append(self.genre_list[i])
+                result.append(self.genre_list[row])
         return result
         
 class lstm_model(Model):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, data_path):
+        super().__init__(data_path)
         self.func_list = [preproc.clean_para, preproc.sentence_to_list]
-        vocab = pd.read_csv('data/vocab_with_stop_word.csv')['word'].values
+        vocab = pd.read_csv(data_path + 'helper_data/vocab_with_stop_word.csv')['word'].values
         vocab = set([str(word) for word in vocab])
         vocab.add('null')
 
@@ -78,7 +82,7 @@ class lstm_model(Model):
 
         self.word_to_index = LSTM.word_to_ix(vocab)
         self.model = LSTM.BiLSTM(len(self.word_to_index), len(self.genre_list), 100, 128, embeddings=embedding)
-        checkpoint = torch.load("lstm_complex_loss_weight.params")
+        checkpoint = torch.load(data_path + "model/lstm_complex_loss_weight_lr_0.1.params")
         self.model.load_state_dict(checkpoint['state_dict'])
 
     def predict(self,text):

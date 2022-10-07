@@ -8,6 +8,17 @@ from classifier import eval, preproc
 
 OFFSET = '**OFFSET**'
 
+def prune_vocab(total_counts, target_data, min_count):
+    data_new = []
+    for bag_of_word in target_data:
+        bag_of_word_new = Counter()
+        for word in bag_of_word:
+            if total_counts[word] >= min_count:
+                bag_of_word_new[word] = bag_of_word[word]
+        data_new.append(bag_of_word_new)
+    return data_new
+    
+
 # This function calculate the count of each word in the label,
 # it also returns a set of all the word in the training data
 # input:
@@ -173,7 +184,7 @@ def find_best_smoother(x_tr, y_tr, x_dev, y_dev, smoothers):
 # weights - the weight we got from calculating weight (key - (word, genre), value - score)
 # filename - saving the weight to the file with the name filename
 def save_weights(weights, filename="nb_weight"):
-    file = filename + '.csv'
+    file = filename
     if exists(file) == False:
         panda_dict = {'word': [], 'genre': [], 'score': []}
         for key in weights:

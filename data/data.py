@@ -106,15 +106,15 @@ def organize_data(dataset, max_num_genres):
 # input:
 # num_per_request - the number of data points per request to the api server
 # min_num_data - the minimum number of data points you want
-# file_name - the name of the file you want to save in
+# file_path - the name of the file you want to save in
 # return
 # if the file does not exist it returns the dataframe and 
 # an array of dict that's the representation of the dataframe
-def write_data(num_per_request, min_num_data):
-    if exists('data/myanimelist.csv') == False:
+def write_data(num_per_request, min_num_data, file_path):
+    if exists(file_path) == False:
         dataset, max_num_genres = get_data(num_per_request, min_num_data)
         df = organize_data(dataset, max_num_genres)
-        df.to_csv('data/myanimelist.csv', index=False)
+        df.to_csv(file_path, index=False)
         return df, dataset
     return (None, None)
 
@@ -124,12 +124,13 @@ def write_data(num_per_request, min_num_data):
 # dataset - a pd dataframe of our data
 # num_test - the number of test data we want
 # num_dev - the number of dev data we want
-def split_data(dataset, num_test, num_dev):
-    if exists('data/test_data.csv') == False and exists('data/dev_data.csv') == False and exists('data/train_data.csv') == False:
+# file_paths = a dict with file paths for train, dev and test data path (key = 'train_path', 'dev_path', 'test_path')
+def split_data(dataset, num_test, num_dev, file_paths):
+    if exists(file_paths['train_path']) == False and exists(file_paths['dev_path']) == False and exists(file_paths['test_path']) == False:
         test_data = dataset.sample(num_test)
         dataset = dataset.drop(test_data.index)
         dev_data = dataset.sample(num_dev)
         train_data = dataset.drop(dev_data.index)
-        test_data.to_csv('data/test_data.csv', index=False)
-        dev_data.to_csv('data/dev_data.csv', index=False)
-        train_data.to_csv('data/train_data.csv', index=False)
+        test_data.to_csv(file_paths['test_path'], index=False)
+        dev_data.to_csv(file_paths['dev_path'], index=False)
+        train_data.to_csv(file_paths['train_path'], index=False)

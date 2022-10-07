@@ -55,6 +55,7 @@ def train_model(loss, model, X_tr_var, Y_tr_var,
 
     losses = []
     accuracies = []
+    f_score_list = []
 
     for epoch in range(num_its):
         # set gradient to zero
@@ -81,12 +82,13 @@ def train_model(loss, model, X_tr_var, Y_tr_var,
             acc = eval.accuracy(Y_hat.data.numpy().astype(int), Y_dv_var.data.numpy())
             f_score = eval.f_score(Y_hat.data.numpy().astype(int), Y_dv_var.data.numpy())
             # save
-            if len(accuracies) == 0 or acc > max(accuracies):
+            if len(f_score_list) == 0 or f_score > max(f_score_list):
                 state = {'state_dict':model.state_dict(),
                          'epoch':len(accuracies)+1,
                          'accuracy':acc}
                 torch.save(state,param_file)
             accuracies.append(acc)
+            f_score_list.append(f_score)
 
         # print status message if desired
         if status_frequency > 0 and epoch % status_frequency == 0:
@@ -98,54 +100,3 @@ def train_model(loss, model, X_tr_var, Y_tr_var,
     model.load_state_dict(checkpoint['state_dict'])
     
     return model, losses, accuracies
-
-
-def train_1_label_model(loss, model, X_tr_var, Y_tr_var,
-                num_its = 200,
-                X_dv_var = None,
-                Y_dv_var = None,
-                status_frequency=10,
-                optim_args = {'lr':0.002,'momentum':0},
-                param_file = 'best.params'):
-
-    # initialize optimizer
-    optimizer = optim.SGD(model.parameters(), **optim_args)
-
-    losses = []
-    accuracies = []
-
-    for epoch in range(num_its):
-        # set gradient to zero
-        optimizer.zero_grad()
-        # run model forward to produce loss
-        output = loss.forward(model.forward(X_tr_var),Y_tr_var)
-        # backpropagate and train
-        output.backward()
-        optimizer.step()
-
-        losses.append(output.item())
-
-        # write parameters if this is the best epoch yet
-        if X_dv_var is not None:
-            # run forward on dev data
-            _, Y_hat = model.forward(X_dv_var).max(dim=1)
-            # compute dev accuracy
-            acc = eval.accu(Y_hat.data.numpy(),Y_dv_var.data.numpy())
-            # save
-            if len(accuracies) == 0 or acc > max(accuracies):
-                state = {'state_dict':model.state_dict(),
-                         'epoch':len(accuracies)+1,
-                         'accuracy':acc}
-                torch.save(state,param_file)
-            accuracies.append(acc)
-
-        # print status message if desired
-        if status_frequency > 0 and epoch % status_frequency == 0:
-            print("Epoch "+str(epoch+1)+": Dev Accuracy: "+str(acc))
-
-    # load parameters of best model
-    checkpoint = torch.load(param_file)
-    model.load_state_dict(checkpoint['state_dict'])
-    
-    return model, losses, accuracies
-

@@ -20,7 +20,7 @@ def prepare_sequence(seq, to_ix):
     idxs = [to_ix[w] if w in to_ix else to_ix['UNK'] for w in seq]
     return idxs
 
-def calculate_loss_weights(genre_count, genre_list):
+def calculate_simple_loss_weights(genre_count, genre_list):
     genre_list = sorted(genre_list)
     result = np.zeros(len(genre_list))
     for genre in genre_count:
@@ -28,15 +28,32 @@ def calculate_loss_weights(genre_count, genre_list):
         result[index] = 1 / genre_count[genre]
     return torch.from_numpy(result)
 
-# def calculate_loss_weights(genre_count, genre_list, num_data):
-#     genre_list = sorted(genre_list)
-#     positive_weights = {}
-#     negative_weights = {}
+def calculate_complex_loss_weights(genre_count, genre_list, num_data):
+    genre_list = sorted(genre_list)
+    positive_weights = [None] * len(genre_list)
+    negative_weights = [None] * len(genre_list)
+    
+    i = 0
+    for label in genre_list:
+        positive_weights[i] = num_data / (2 * genre_count[label])
+        negative_weights[i] = num_data / (2 * (num_data - genre_count[label]))
+        i += 1
+    return torch.tensor(positive_weights), torch.tensor(negative_weights)
 
-#     for label in genre_list:
-#         positive_weights[label] = num_data / (2 * genre_count[label])
-#         negative_weights[label] = num_data / (2 * (num_data - genre_count[label]))
-#     return positive_weights, negative_weights
+def BCEloss_with_weight(output, target, w_p, w_n):
+    # a simple demonstration of how the loss function work without using numpy function
+#     loss = []
+#     for i in range(output.size(dim=0)):
+#         first_term = w_p[genre_list[i]] * target[i] * torch.log(output[i] + 1e-10)
+#         second_term = w_n[genre_list[i]] * (1 - target[i]) + torch.log(1 - output[i] + 1e-10)
+#         loss.append(first_term + second_term)
+    loss_func = torch.nn.BCELoss(reduction = "none")
+    first_term = target * w_p
+    second_term = (1 - target) * w_n
+    
+    loss = loss_func(output, target)
+    loss = (first_term + second_term) * loss
+    return torch.mean(loss)
 
 
 def load_glove_vectors(vocab, glove_file="./data/glove.6B/glove.6B.100d.txt"):
@@ -59,14 +76,6 @@ def load_glove_vectors(vocab, glove_file="./data/glove.6B/glove.6B.100d.txt"):
     
     word_embeddings = np.array(word_embeddings)
     return word_embeddings
-
-def BCEloss_with_weight(output, target, w_p, w_n, genre_list):
-    loss = []
-    for i in range():
-        first_term = w_p[genre_list[i]] * target[i] * torch.log(output[i] + 1e-10)
-        second_term = w_n[genre_list[i]] * (1 - target[i]) + torch.log(1 - output[i] + 1e-10)
-        loss.append(first_term + second_term)
-    return torch.mean(torch.tensor(loss))
 
 class BiLSTM(nn.Module):
     """
@@ -108,7 +117,7 @@ class BiLSTM(nn.Module):
         probs = sigmoid_layer(output)
         return probs
 
-def train_model(loss, model, X_tr, Y_tr, loss_weight, X_dv=None, Y_dv = None, num_its=50, status_frequency=10,
+def train_model(model, X_tr, Y_tr, w_p, w_n, X_dv=None, Y_dv = None, num_its=50, status_frequency=10,
                optim_args = {'lr':0.1},
                param_file = 'best.params'):
     
@@ -117,6 +126,7 @@ def train_model(loss, model, X_tr, Y_tr, loss_weight, X_dv=None, Y_dv = None, nu
     
     losses=[]
     accuracies=[]
+    f_score_list = []
     
     for epoch in range(num_its):
         
@@ -132,14 +142,12 @@ def train_model(loss, model, X_tr, Y_tr, loss_weight, X_dv=None, Y_dv = None, nu
             # set gradient to zero
             optimizer.zero_grad()
             
-            output = loss(y_pred, Y_tr_var)
-            output = (output * loss_weight).mean()
+            output = BCEloss_with_weight(y_pred, Y_tr_var, w_p, w_n)
             
             output.backward()
             optimizer.step()
             loss_value += output.item()
             count1+=1
-            
             
         losses.append(loss_value/count1)
         
@@ -152,7 +160,6 @@ def train_model(loss, model, X_tr, Y_tr, loss_weight, X_dv=None, Y_dv = None, nu
             for Xdv, Ydv in zip(X_dv, Y_dv):
                 
                 X_dv_var = Variable(torch.Tensor(Xdv)).long()
-                Y_dv_var = Variable(torch.from_numpy(Ydv))
                 # run forward on dev data
                 Y_hat = model(X_dv_var)
                 
@@ -167,12 +174,15 @@ def train_model(loss, model, X_tr, Y_tr, loss_weight, X_dv=None, Y_dv = None, nu
                 # save
             acc = eval.accuracy(y_pred, Y_dv)
             f_score = eval.f_score(y_pred, Y_dv)
-            if len(accuracies) == 0 or acc > max(accuracies):
+
+            # we want the epoch with the highest f_score
+            if len(f_score_list) == 0 or f_score > max(f_score_list):
                 state = {'state_dict':model.state_dict(),
                          'epoch':len(accuracies)+1,
                          'accuracy':acc}
                 torch.save(state,param_file)
             accuracies.append(acc)
+            f_score_list.append(f_score)
         # print status message if desired
         if status_frequency > 0 and epoch % status_frequency == 0:
             print("Epoch "+str(epoch+1)+": Dev Accuracy: "+str(acc))

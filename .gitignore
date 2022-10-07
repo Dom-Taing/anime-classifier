@@ -1,7 +1,6 @@
-data/train_data.csv
-data/dev_data.csv
-data/test_data.csv
-data/myanimelist.csv
+data/raw_data
+data/copy_model
+data/model/nb_weight
 
 myanimelist/
 
@@ -15,5 +14,7 @@ instance/
 __pycache__/
 
 glove.6B/
+
+glove.6B.zip
 
 nb_weight.csv
