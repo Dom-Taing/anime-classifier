@@ -18,3 +18,9 @@ glove.6B/
 glove.6B.zip
 
 nb_weight.csv
+
+frontend/node_modules
+
+frontend/dist
+
+frontend/public/images

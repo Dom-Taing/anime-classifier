@@ -1,0 +1,36 @@
+.Form__Container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.Form__Container > p {
+    color: white;
+    font-size: large;
+}
+
+.Form {
+    width: 50%;
+}
+
+.Input__Bar {
+    width: 100%;
+    height: 5em;
+    border-radius: 1rem;
+    padding: 0.5rem;
+}
+
+.button__submit {
+    display: block;
+    height: 3rem;
+    padding: 1em 3em;
+    margin: auto;
+    background-color: white;
+    color: rgb(77, 77, 255);
+    border-color: rgb(77, 77, 255);
+    border-radius: 1em;
+}
+.display {
+    width: 100%;
+    padding-top: 20vh;
+}
